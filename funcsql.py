@@ -57,9 +57,11 @@ class Query:
         # Since we validated that they can't mix,
         # now we just check whether these are aggregate funcs or fields
         if has_aggregates:
-            self.select_fields = [field(self) for field in fields]
+            self.select_fields = []
+            self.aggregate_fields = [field(self) for field in fields]
         else:
             self.select_fields = fields
+            self.aggregate_fields = []
 
         return self
     
@@ -133,7 +135,7 @@ class Query:
     def execute(self):
         if not self.table:
             raise ValueError("No table given.")
-        if not self.select_fields:
+        if not self.select_fields and not self.aggregate_fields:
             raise ValueError("No fields to select.")
 
         # Get all data from table
@@ -226,14 +228,62 @@ class Query:
         return data[:self.limit] if self.limit else data
     
     def __apply_select(self, data):
-        # Returns only the fields specified in self.select_fields
-        return [
-            {field: row[field] for field in self.select_fields} for row in data
-        ]
+        # Returns only the fields specified in self.select_fields, or all fields if * is specified.
+        if '*' in self.select_fields:
+            if len(self.select_fields) == 1:
+                # Since the length is 1, the only selected field is '*'
+                return data
+            else:
+                raise ValueError("Cannot simultaneously select all fields and specific fields.")
+        elif self.select_fields:
+            return [
+                {field: row[field] for field in self.select_fields} for row in data
+            ]
+        elif self.aggregate_fields:
+            result = {}
+            for field in self.aggregate_fields:
+                aggregate_results = self.__apply_aggregate(field, data)
+                result[field] = aggregate_results
+            return result
+        else:
+            raise ValueError("No fields were selected. Did you forget to call SELECT?")
+        
+    def __apply_aggregate(self, aggregate_call, data):
+        # Find name of function by finding first parenthesis
+        aggregate_name = aggregate_call[:aggregate_call.find('(')]
+        # Find name of field in between paraenthesis
+        field_name = aggregate_call[aggregate_call.find('(')+1:aggregate_call.find(')')]
+        
+        # Extract values for specified field from field_name
+        values = []
+        if field_name in self.columns():
+            values = [row[field_name] for row in data]
+        else:
+            raise ValueError(f"{field_name} is not a valid field.")
+            
+        if not values:
+            raise ValueError(f"No values found for field: {field_name}")
+        
+        # Apply aggregate function to values
+        try:
+            if aggregate_name == "COUNT":
+                return len(values)
+            elif aggregate_name == "SUM":
+                return sum(values)
+            elif aggregate_name == "AVG":
+                return sum(values) / len(values)
+            elif aggregate_name == "MAX":
+                return max(values)
+            elif aggregate_name == "MIN":
+                return min(values)
+            else:
+                raise ValueError(f"Invalid aggregate function: {aggregate_name}")
+        except Exception as e:
+            raise ValueError(f"Failed to apply aggregate function: {aggregate_name}. Error: {e}")
 
     def __str__(self):
         query = "SELECT "
-        query += ", ".join(self.select_fields)
+        query += ", ".join(self.select_fields or self.aggregate_fields)
         query += " FROM " + self.table.get_name()
         if self.conditional_fields:
             for field, operator, value in self.conditional_fields:
@@ -248,7 +298,7 @@ class Query:
     
 def __aggregator(aggregateop, field):
     def __apply(query):
-        query.aggregates.append(f"{aggregateop}({field})")
+        query.aggregate_fields.append(f"{aggregateop}({field})")
         return f"{aggregateop}({field})"
     return __apply
 

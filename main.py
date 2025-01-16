@@ -17,11 +17,9 @@ def main():
 
     db = Database([people])
 
-    query = Query(db).SELECT("id", "age") \
+    query = Query(db).SELECT(SUM("age")) \
                      .FROM("people") \
                      .WHERE("age > 30") \
-                     .ORDER_BY("age") \
-                     .LIMIT(3)
     
     start_time = time.time()
     results = query.execute()
