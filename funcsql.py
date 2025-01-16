@@ -1,7 +1,10 @@
 class Table:
     def __init__(self, name: str, data: list[dict]):
         self.name = name
-        self.data = data
+        if self.__validate_table(data):
+            self.data = data
+        else:
+            raise ValueError("Invalid table data.")
 
     def get_name(self):
         return self.name
@@ -12,11 +15,47 @@ class Table:
     def get_data(self):
         return self.data
     
+    def __validate_table(self, table):
+        # Ensure table is a list
+        if not isinstance(table, list):
+            raise ValueError("Table data must be a list.")
+        
+        # Check for empty table
+        if not table:
+            raise ValueError("Table data cannot be empty. There should be at least one row with column names, even if each column is empty.")
+        
+        # Ensure all rows are dictionaries
+        if not all(isinstance(row, dict) for row in table):
+            raise ValueError("Table data must be a list of dictionaries.")
+        
+        # Ensure all rows have the same keys
+        expected_keys = set(table[0].keys())
+        for i, row in enumerate(table):
+            if set(row.keys()) != expected_keys:
+                raise ValueError(f"Row {i + 1} has inconsistent keys. Expected: {expected_keys}, Got: {set(row.keys())}")
+        
+        # Ensure table has a valid name
+        if not self.get_name():
+            raise ValueError("Table must have a name.")
+        
+        # Validate column names
+        for col in expected_keys:
+            if not isinstance(col, str) or not col.strip():
+                raise ValueError(f"Invalid column name: '{col}'. Column names must be non-empty strings.")
+            
+        return True
+
     def __str__(self):
         return self.name
 
 class Database:
-    def __init__(self, tables=None):
+    def __init__(self, tables=[]):
+        # Check that all tables have unique names
+        table_names = [table.get_name() for table in tables]
+        if len(table_names) != len(set(table_names)):
+            raise ValueError("All tables must have unique names.")
+        
+        # Create table dictionary
         self.tables = {table.get_name(): table for table in (tables or [])}
 
     def insert_table(self, table):
@@ -29,6 +68,9 @@ class Database:
     def drop_table(self, names):
         for name in names:
             self.delete_table(name)
+
+    def get_tables(self):
+        return self.tables.keys()
     
     def get_table(self, name):
         for table_name in self.tables:
@@ -92,19 +134,19 @@ class Query:
         return self
 
     def LIKE(self, value):
-        pass
-
+        return self.__keyword_operator("LIKE", value)
+        
     def IN(self, values):
-        pass
+        return self.__keyword_operator("IN", values)
 
     def BETWEEN(self, value1, value2):
-        pass
+        return self.__keyword_operator("BETWEEN", (value1, value2))
 
     def IS_NULL(self):
-        pass
+        return self.__keyword_operator("IS NULL", None)
 
-    def IF_NOT_NULL(self):
-        pass
+    def IS_NOT_NULL(self):
+        return self.__keyword_operator("IS NOT NULL", None)
     
     def ORDER_BY(self, field, direction="ASC"):
         self.order_by = field
@@ -172,6 +214,9 @@ class Query:
 
         if not self.conditional_fields:
             self.conditional_fields = new_condition
+
+            # Store reference of last condition for .LIKE, .IN, .BETWEEN, etc.
+            self.last_condition_ref = new_condition
         else:
             if isinstance(self.conditional_fields, dict) and self.conditional_fields.get("logic") == logic_operator:
                 self.conditional_fields["conditions"].append(new_condition)
@@ -181,56 +226,94 @@ class Query:
                     "conditions": [self.conditional_fields, new_condition]
                 }
 
+            # Store reference of last condition for .LIKE, .IN, .BETWEEN, etc.
+            self.last_condition_ref = new_condition
+
         print(self.conditional_fields)
         
         return self
+    
+    def __keyword_operator(self, keyword, value):
+        if not self.conditional_fields:
+            raise ValueError(f"{keyword} cannot be used without a preceding WHERE.")
+        
+        if self.last_condition_ref is None:
+            raise ValueError(f"No condition to apply {keyword} to.")
+        
+        field, operator, value = self.last_condition_ref
+
+        if operator is not None:
+            raise ValueError(f"Operator already applied to condition on {field}. Cannot apply {keyword}.")
+        
+        self.last_condition_ref = (field, keyword, value)
+
+        return self
+    
+    def __like_match(self, field_value, pattern):
+        """
+        Matches field_value against a SQL-like pattern using regex.
+        SQL LIKE uses `%` for any number of characters and `_` for exactly one character.
+        """
+        # Convert SQL LIKE pattern to Python regex pattern
+        # - `%` becomes `.*` (zero or more characters)
+        # - `_` becomes `.` (exactly one character)
+        regex_pattern = "^" + pattern.replace("%", ".*").replace("_", ".") + "$"
+
+        # Match the field value using the regex pattern
+        return re.match(regex_pattern, field_value) is not None
 
     def __apply_conditions(self, data):
         if not self.conditional_fields:
             return data
         
         def evaluate_condition(row, condition):
-            try:
-                if isinstance(condition, tuple):
-                    field, operator, value, = condition
-                    value = value.strip("'").strip('"')
-                    field_value = row.get(field)
+            if isinstance(condition, tuple):
+                field, operator, value, = condition
+                value = value.strip("'").strip('"') if isinstance(value, str) else value
+                field_value = row.get(field)
 
-                    # Map operator strings to funcs
-                    operators = {
-                         '=': lambda x, y: x == y,
-                        '!=': lambda x, y: x != y,
-                        '<>': lambda x, y: x != y,
-                         '<': lambda x, y: x < y,
-                        '<=': lambda x, y: x <= y,
-                         '>': lambda x, y: x > y,
-                        '>=': lambda x, y: x >= y
-                    }
+                # Map operator strings to funcs
+                operators = {
+                    '='          : lambda x, y: x == y,
+                    '!='         : lambda x, y: x != y,
+                    '<>'         : lambda x, y: x != y,
+                    '<'          : lambda x, y: x < y,
+                    '<='         : lambda x, y: x <= y,
+                    '>'          : lambda x, y: x > y,
+                    '>='         : lambda x, y: x >= y,
+                    'LIKE'       : lambda x, y: self.__like_match(x, y),
+                    'IN'         : lambda x, y: x in y,
+                    'BETWEEN'    : lambda x, y: y[0] <= x <= y[1],
+                    'IS NULL'    : lambda x, y: x is None,
+                    'IS NOT NULL': lambda x, y: x is not None,
+                }
 
-                    # Try to get equivalent operator function, otherwise leave as is
-                    operator_func = operators.get(operator, operator)
+                # Try to get equivalent operator function, otherwise leave as is
+                operator_func = operators.get(operator)
 
-                    # Convert value to the same type as row[field]
-                    if isinstance(field_value, (int, float)):
-                        value = float(value) if '.' in str(value) else int(value)
+                # Convert value to the same type as row[field]
+                if isinstance(field_value, (int, float)):
+                    value = float(value) if '.' in str(value) else int(value)
 
-                    return operator_func(field_value, value)
-                elif isinstance(condition, dict):
-                    logic = condition.get("logic")
-                    conditions = condition.get("conditions")
-
-                    if logic == "AND" or logic is None:
-                        return all(evaluate_condition(row, cond) for cond in conditions)
-                    elif logic == "OR":
-                        return any(evaluate_condition(row, cond) for cond in conditions)
+                try:
+                    if field_value is not None:
+                        return operator_func(field_value, value) if operator_func else False
                     else:
-                        raise ValueError(f"Invalid logic operator: {logic}")
+                        return False
+                except SyntaxError:
+                    raise ValueError(f"Invalid operator: {operator}")
+            elif isinstance(condition, dict):
+                logic = condition.get("logic")
+                conditions = condition.get("conditions")
+
+                if logic == "AND" or logic is None:
+                    return all(evaluate_condition(row, cond) for cond in conditions)
+                elif logic == "OR":
+                    return any(evaluate_condition(row, cond) for cond in conditions)
                 else:
-                    raise ValueError(f"Invalid condition: {condition}")
-            except SyntaxError:
-                # Operator must be keyword (e.g., LIKE, IN, etc.)
-                print('Operator is a keyword?')
-                return False #TODO
+                    raise ValueError(f"Invalid logic operator: {logic}")
+            else:
+                raise ValueError(f"Invalid condition: {condition}")
 
         return [row for row in data if evaluate_condition(row, self.conditional_fields)]
     
@@ -318,6 +401,10 @@ class Query:
             query += " LIMIT " + str(self.limit)
         return query
     
+# ==================================
+# Aggregate functions
+# ==================================
+
 def __aggregator(aggregateop, field):
     def __apply(query):
         query.aggregate_fields.append(f"{aggregateop}({field})")
@@ -338,3 +425,68 @@ def MAX(field):
 
 def MIN(field):
     return __aggregator("MIN", field)
+
+# ==================================
+# Additional functions
+# ==================================
+
+def csv_to_table(name, file):
+    import csv
+
+    with open(file, 'r') as f:
+        reader = csv.DictReader(f)
+        data = [row for row in reader]
+        return Table(name, data)
+    
+def table_to_csv(table, file='output.csv'):
+    import csv
+    
+    with open(file, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=table.get_columns())
+        writer.writeheader()
+        for row in table.get_data():
+            writer.writerow(row)
+
+def sqlite_to_db(file):
+    # Converts an SQLite database file into a `Database` object.
+    import sqlite3
+    
+    # Connect to SQLite database
+    conn = sqlite3.connect(file)
+    conn.row_factory = sqlite3.Row  # Access rows as dictionaries
+    cursor = conn.cursor()
+
+    # Fetch all table names
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
+    tables = cursor.fetchall()
+    table_names = [table["name"] for table in tables]
+
+    # Load each table into a Table object
+    db_tables = []
+    for table_name in table_names:
+        cursor.execute(f"SELECT * FROM {table_name};")
+        rows = [dict(row) for row in cursor.fetchall()]  # Convert rows to a list of dictionaries
+        db_tables.append(Table(name=table_name, data=rows))
+
+    # Close the connection
+    conn.close()
+
+    # Create a Database object with the imported tables
+    return Database(db_tables)
+
+
+def db_to_sqlite(db, file='output.db'):
+    import sqlite3
+
+    conn = sqlite3.connect(file)
+    cursor = conn.cursor()
+
+    for table in db.get_tables():
+        cursor.execute(f"CREATE TABLE {table} ({', '.join(db.get_table(table).get_columns())})")
+        for row in db.get_table(table).get_data():
+            cursor.execute(f"INSERT INTO {table} VALUES ({', '.join(str(val) for val in row.values())})")
+
+    conn.commit()
+    conn.close()
+
+# ==================================
