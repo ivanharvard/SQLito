@@ -45,6 +45,7 @@ class Query:
         self.conditional_fields = []
         self.aggregate_fields = []
         self.order_by = None
+        self.order_direction = "ASC"
         self.limit = None
 
     def SELECT(self, *fields):
@@ -73,35 +74,22 @@ class Query:
         return self
     
     def WHERE(self, field_or_condition):
-        import re
-        
-        # Use regex to parse condition (e.g., "age > 30")
-        pattern = r"(\w+)\s*([=|!=|<|>|<=|>=|<>]+)\s*(.+)"
-        match = re.match(pattern, field_or_condition)
-        
-        if match:
-            field, operator, value = match.groups()
-
-            if field not in self.columns():
-                raise ValueError(f"{field} is not a valid field.")
-
-            self.conditional_fields.append((field, operator, value))
-        else:
-            # If no match, then assume it's some kind of field and validate it.
-            field = field_or_condition
-
-            if field not in self.columns():
-                raise ValueError(f"{field} is not a valid field.")
-
-            self.conditional_fields.append((field, None, None))
-        
+        if self.conditional_fields:
+            raise ValueError("Cannot chain multiple WHERE conditions. Use AND or OR instead.")
+        self.__add_condition(field_or_condition)
         return self
             
     def AND(self, field_or_condition):
-        pass
+        if not self.conditional_fields:
+            raise ValueError("AND cannot be used without a preceding WHERE.")
+        self.__add_condition(field_or_condition, "AND")
+        return self
 
     def OR(self, field_or_condition):
-        pass
+        if not self.conditional_fields:
+            raise ValueError("OR cannot be used without a preceding WHERE.")
+        self.__add_condition(field_or_condition, "OR")
+        return self
 
     def LIKE(self, value):
         pass
@@ -118,8 +106,12 @@ class Query:
     def IF_NOT_NULL(self):
         pass
     
-    def ORDER_BY(self, field):
+    def ORDER_BY(self, field, direction="ASC"):
         self.order_by = field
+        if direction in ["ASC", "DESC"]:
+            self.order_direction = direction
+        else:
+            raise ValueError(f"Invalid ORDER BY direction: {direction}")
         return self
     
     def LIMIT(self, limit):
@@ -154,72 +146,100 @@ class Query:
         selected_data = self.__apply_select(limited_data)
 
         return selected_data
+    
+    def __add_condition(self, field_or_condition, logic_operator=None):
+        import re
+        
+        # Use regex to parse condition (e.g., "age > 30")
+        pattern = r"(\w+)\s*([=|!=|<|>|<=|>=|<>]+)\s*(.+)"
+        match = re.match(pattern, field_or_condition)
+        
+        if match:
+            field, operator, value = match.groups()
+
+            if field not in self.columns():
+                raise ValueError(f"{field} is not a valid field.")
+
+            new_condition = (field, operator, value)
+        else:
+            # If no match, then assume it's some kind of field and validate it.
+            field = field_or_condition
+
+            if field not in self.columns():
+                raise ValueError(f"{field} is not a valid field.")
+
+            new_condition = (field, None, None)
+
+        if not self.conditional_fields:
+            self.conditional_fields = new_condition
+        else:
+            if isinstance(self.conditional_fields, dict) and self.conditional_fields.get("logic") == logic_operator:
+                self.conditional_fields["conditions"].append(new_condition)
+            else:
+                self.conditional_fields = {
+                    "logic": logic_operator,
+                    "conditions": [self.conditional_fields, new_condition]
+                }
+
+        print(self.conditional_fields)
+        
+        return self
 
     def __apply_conditions(self, data):
         if not self.conditional_fields:
             return data
         
-        def evaluate_condition(row, field, operator, value):
-            if operator:
-                try:
-                    import operator as op
+        def evaluate_condition(row, condition):
+            try:
+                if isinstance(condition, tuple):
+                    field, operator, value, = condition
+                    value = value.strip("'").strip('"')
+                    field_value = row.get(field)
 
                     # Map operator strings to funcs
                     operators = {
-                        '=': op.eq,
-                        '!=': op.ne,
-                        '<>': op.ne,
-                        '<': op.lt,
-                        '<=': op.le,
-                        '>': op.gt,
-                        '>=': op.ge,
+                         '=': lambda x, y: x == y,
+                        '!=': lambda x, y: x != y,
+                        '<>': lambda x, y: x != y,
+                         '<': lambda x, y: x < y,
+                        '<=': lambda x, y: x <= y,
+                         '>': lambda x, y: x > y,
+                        '>=': lambda x, y: x >= y
                     }
 
-                    # Try to get equivalent operator function, otherwise use operator string.
+                    # Try to get equivalent operator function, otherwise leave as is
                     operator_func = operators.get(operator, operator)
 
                     # Convert value to the same type as row[field]
-                    field_value = row[field]
                     if isinstance(field_value, (int, float)):
                         value = float(value) if '.' in str(value) else int(value)
-                    elif isinstance(field_value, str) and \
-                         ((value.startswith('"') and value.endswith('"')) or \
-                          (value.startswith("'") and value.endswith("'"))):
-                        value = value[1:-1]
 
                     return operator_func(field_value, value)
-                except SyntaxError:
-                    # Operator must be keyword (e.g., LIKE, IN, etc.)
-                    print('Failed to evaluate condition.')
-                    return False #TODO
-                
-            else:
-                raise ValueError(
-                    f"""
-                    WHERE condition is incomplete.
-                    Field: {field} 
-                    Operator: {operator} 
-                    Value: {value}
-                    """
-                )
+                elif isinstance(condition, dict):
+                    logic = condition.get("logic")
+                    conditions = condition.get("conditions")
 
-        filtered_data = []
-        for row in data:
-            match = True
-            for clause in self.conditional_fields:
-                field, operator, value = clause
-                if not evaluate_condition(row, field, operator, value):
-                    match = False
-                    break
-            if match:
-                filtered_data.append(row)
+                    if logic == "AND" or logic is None:
+                        return all(evaluate_condition(row, cond) for cond in conditions)
+                    elif logic == "OR":
+                        return any(evaluate_condition(row, cond) for cond in conditions)
+                    else:
+                        raise ValueError(f"Invalid logic operator: {logic}")
+                else:
+                    raise ValueError(f"Invalid condition: {condition}")
+            except SyntaxError:
+                # Operator must be keyword (e.g., LIKE, IN, etc.)
+                print('Operator is a keyword?')
+                return False #TODO
 
-        return filtered_data 
-        
+        return [row for row in data if evaluate_condition(row, self.conditional_fields)]
     
     def __apply_order(self, data):
         if self.order_by:
-            return sorted(data, key=lambda x: x[self.order_by])
+            if self.order_direction == "ASC":
+                return sorted(data, key=lambda x: x[self.order_by])
+            else:
+                return sorted(data, key=lambda x: x[self.order_by], reverse=True)
         else:
             return data
     
@@ -258,6 +278,8 @@ class Query:
         values = []
         if field_name in self.columns():
             values = [row[field_name] for row in data]
+        elif field_name == "*":
+            values = data 
         else:
             raise ValueError(f"{field_name} is not a valid field.")
             
@@ -285,11 +307,11 @@ class Query:
         query = "SELECT "
         query += ", ".join(self.select_fields or self.aggregate_fields)
         query += " FROM " + self.table.get_name()
-        if self.conditional_fields:
-            for field, operator, value in self.conditional_fields:
-                query += f" WHERE {field} "
-                if operator:
-                    query += f"{operator} {value}"
+        # if self.conditional_fields:
+        #     for (field, operator, value) in self.conditional_fields:
+        #         query += f" WHERE {field} "
+        #         if operator:
+        #             query += f"{operator} {value}"
         if self.order_by:
             query += " ORDER BY " + self.order_by
         if self.limit:
