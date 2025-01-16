@@ -27,7 +27,6 @@ def main():
     results = query.execute()
     end_time = time.time()
 
-
     print(query)
     print(results)
     print(f"Execution time: {end_time - start_time} seconds")

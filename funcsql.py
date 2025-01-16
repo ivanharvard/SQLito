@@ -159,34 +159,47 @@ class Query:
         
         def evaluate_condition(row, field, operator, value):
             if operator:
-                # Operator should change to Python equivalent
-                py_equivalents = {
-                    '=': '==',
-                    '!=': '!=',
-                    '<>': '!=',
-                    '<=': '<=',
-                    '>=': '>=',
-                    '<': '<',
-                    '>': '>'
-                }
-
-                # Try to convert. If fails, leave as is.
-                operator = py_equivalents.get(operator, operator)
-
                 try:
-                    from ast import literal_eval
-                    return literal_eval(f"{row[field]} {operator} {value}")
+                    import operator as op
+
+                    # Map operator strings to funcs
+                    operators = {
+                        '=': op.eq,
+                        '!=': op.ne,
+                        '<>': op.ne,
+                        '<': op.lt,
+                        '<=': op.le,
+                        '>': op.gt,
+                        '>=': op.ge,
+                    }
+
+                    # Try to get equivalent operator function, otherwise use operator string.
+                    operator_func = operators.get(operator, operator)
+
+                    # Convert value to the same type as row[field]
+                    field_value = row[field]
+                    if isinstance(field_value, (int, float)):
+                        value = float(value) if '.' in str(value) else int(value)
+                    elif isinstance(field_value, str) and \
+                         ((value.startswith('"') and value.endswith('"')) or \
+                          (value.startswith("'") and value.endswith("'"))):
+                        value = value[1:-1]
+
+                    return operator_func(field_value, value)
                 except SyntaxError:
                     # Operator must be keyword (e.g., LIKE, IN, etc.)
+                    print('Failed to evaluate condition.')
                     return False #TODO
                 
             else:
-                raise ValueError(f"""
-                                 WHERE condition is incomplete: 
-                                 Field: {field} 
-                                 Operator: {operator} 
-                                 Value: {value}
-                                 """)
+                raise ValueError(
+                    f"""
+                    WHERE condition is incomplete.
+                    Field: {field} 
+                    Operator: {operator} 
+                    Value: {value}
+                    """
+                )
 
         filtered_data = []
         for row in data:
