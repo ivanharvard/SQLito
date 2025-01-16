@@ -1,5 +1,3 @@
-import time
-
 class Table:
     def __init__(self, name: str, data: list[dict]):
         self.name = name
@@ -45,11 +43,24 @@ class Query:
 
         self.select_fields = []
         self.conditional_fields = []
+        self.aggregate_fields = []
         self.order_by = None
         self.limit = None
 
     def SELECT(self, *fields):
-        self.select_fields = fields
+        has_aggregates    = any(callable(field) for field in fields)
+        has_no_aggregates = any(not callable(field) for field in fields)
+
+        if has_aggregates and has_no_aggregates:
+            raise ValueError("Cannot mix aggregate functions and fields in SELECT.")
+
+        # Since we validated that they can't mix,
+        # now we just check whether these are aggregate funcs or fields
+        if has_aggregates:
+            self.select_fields = [field(self) for field in fields]
+        else:
+            self.select_fields = fields
+
         return self
     
     def FROM(self, table_name):
@@ -104,8 +115,6 @@ class Query:
 
     def IF_NOT_NULL(self):
         pass
-
-    
     
     def ORDER_BY(self, field):
         self.order_by = field
@@ -165,7 +174,8 @@ class Query:
                 operator = py_equivalents.get(operator, operator)
 
                 try:
-                    return eval(f"{row[field]} {operator} {value}")
+                    from ast import literal_eval
+                    return literal_eval(f"{row[field]} {operator} {value}")
                 except SyntaxError:
                     # Operator must be keyword (e.g., LIKE, IN, etc.)
                     return False #TODO
@@ -223,38 +233,23 @@ class Query:
             query += " LIMIT " + str(self.limit)
         return query
     
-def main():
+def __aggregator(aggregateop, field):
+    def __apply(query):
+        query.aggregates.append(f"{aggregateop}({field})")
+        return f"{aggregateop}({field})"
+    return __apply
 
-    people = Table("people", [
-        {"id": 1, "name": "John", "age": 30, "role": "Engineer"},
-        {"id": 2, "name": "Jane", "age": 25, "role": "Manager"},
-        {"id": 3, "name": "Alice", "age": 35, "role": "Engineer"},
-        {"id": 4, "name": "Bob", "age": 40, "role": "Manager"},
-        {"id": 5, "name": "Charlie", "age": 45, "role": "Engineer"},
-        {"id": 6, "name": "David", "age": 50, "role": "Manager"},
-        {"id": 7, "name": "Eve", "age": 55, "role": "Engineer"},
-        {"id": 8, "name": "Frank", "age": 60, "role": "Manager"},
-        {"id": 9, "name": "Grace", "age": 65, "role": "Engineer"},
-        {"id": 10, "name": "Heidi", "age": 70, "role": "Manager"},
-    ])
+def COUNT(field):
+    return __aggregator("COUNT", field)
 
-    db = Database([people])
+def SUM(field):
+    return __aggregator("SUM", field)
 
-    query = Query(db).SELECT("id", "age") \
-                     .FROM("people") \
-                     .WHERE("name") \
-                     .LIKE("J%") \
-                     .ORDER_BY("age") \
-                     .LIMIT(3)
-    
-    start_time = time.time()
-    results = query.execute()
-    end_time = time.time()
+def AVG(field):
+    return __aggregator("AVG", field)
 
+def MAX(field):
+    return __aggregator("MAX", field)
 
-    print(query)
-    print(results)
-    print(f"Execution time: {end_time - start_time} seconds")
-
-if __name__ == "__main__":
-    main()
+def MIN(field):
+    return __aggregator("MIN", field)
