@@ -1,3 +1,6 @@
+import time
+import re
+
 class Table:
     def __init__(self, name: str, data: list[dict]):
         self.name = name
@@ -51,12 +54,18 @@ class Table:
 class Database:
     def __init__(self, tables=[]):
         # Check that all tables have unique names
+        if not isinstance(tables, list) or not all(isinstance(item, Table) for item in tables):
+            raise TypeError("Database tables must be a list of Table objects")
+
         table_names = [table.get_name() for table in tables]
         if len(table_names) != len(set(table_names)):
             raise ValueError("All tables must have unique names.")
         
         # Create table dictionary
         self.tables = {table.get_name(): table for table in (tables or [])}
+
+        self.mode_setting = "off"
+        self.timer_setting = True
 
     def insert_table(self, table):
         name, data = table
@@ -78,6 +87,30 @@ class Database:
                 return self.tables[table_name]
         return None
     
+    def schema(self):
+        return {name: table.get_columns() for name, table in self.tables.items()}
+    
+    def mode(self, mode_str):
+        valid_modes = ['off', 'python', 'table', 'tabs', 'csv']
+
+        if mode_str not in valid_modes:
+            raise ValueError("Invalid mode. Valid modes: {valid_modes}")
+        self.mode_setting = mode_str
+        return self
+
+    def timer(self, timer_str):
+        timer_vals = {
+            "on": True,
+            "off": False
+        }
+
+        try:
+            self.timer = timer_vals[timer_str]
+        except KeyError:
+            raise ValueError("Invalid timer value. Valid values: on, off")
+        
+        return self
+    
 class Query:
     def __init__(self, db):
         self.db = db 
@@ -89,6 +122,7 @@ class Query:
         self.order_by = None
         self.order_direction = "ASC"
         self.limit = None
+        self.last_condition_ref = None
 
     def SELECT(self, *fields):
         has_aggregates    = any(callable(field) for field in fields)
@@ -109,13 +143,21 @@ class Query:
         return self
     
     def FROM(self, table_name):
-        if table_name not in self.tables():
-            raise ValueError(f"{table_name} is not a valid table.")
+        if not self.select_fields and not self.aggregate_fields:
+            raise ValueError("No fields to select. Did you forget to call SELECT?")
+
+        all_tables = self.tables()
+        if not all_tables:
+            raise ValueError(f"Cannot access the {table_name} table because there are no tables in this database.")
+        if table_name not in all_tables:
+            raise ValueError(f"{table_name} is not a valid table in this database.")
         
         self.table = self.db.get_table(table_name)
         return self
     
     def WHERE(self, field_or_condition):
+        if not self.table:
+            raise ValueError("No table to query. Did you forget to call FROM?")
         if self.conditional_fields:
             raise ValueError("Cannot chain multiple WHERE conditions. Use AND or OR instead.")
         self.__add_condition(field_or_condition)
@@ -167,10 +209,17 @@ class Query:
         return self.table.get_columns() if self.table else []
     
     def execute(self):
+        if not self.db:
+            raise ValueError("No database given.")
         if not self.table:
             raise ValueError("No table given.")
         if not self.select_fields and not self.aggregate_fields:
             raise ValueError("No fields to select.")
+        
+        if self.db.mode_setting != "off":
+            pass
+        if self.db.timer_setting:
+            start_time = time.time()
 
         # Get all data from table
         table_data = self.table.get_data()
@@ -187,11 +236,18 @@ class Query:
         # Select only the fields specified
         selected_data = self.__apply_select(limited_data)
 
+        if self.db.timer_setting:
+            end_time = time.time()
+
+        if self.db.mode_setting == 'python':
+            print(selected_data)
+
+        if self.db.timer_setting:
+            print(f"real: {end_time - start_time} seconds")
+
         return selected_data
     
     def __add_condition(self, field_or_condition, logic_operator=None):
-        import re
-        
         # Use regex to parse condition (e.g., "age > 30")
         pattern = r"(\w+)\s*([=|!=|<|>|<=|>=|<>]+)\s*(.+)"
         match = re.match(pattern, field_or_condition)
@@ -229,7 +285,7 @@ class Query:
             # Store reference of last condition for .LIKE, .IN, .BETWEEN, etc.
             self.last_condition_ref = new_condition
 
-        print(self.conditional_fields)
+        # print(self.conditional_fields)
         
         return self
     
@@ -239,13 +295,27 @@ class Query:
         
         if self.last_condition_ref is None:
             raise ValueError(f"No condition to apply {keyword} to.")
-        
-        field, operator, value = self.last_condition_ref
+
+        field, operator, _ = self.last_condition_ref
 
         if operator is not None:
             raise ValueError(f"Operator already applied to condition on {field}. Cannot apply {keyword}.")
-        
-        self.last_condition_ref = (field, keyword, value)
+
+        updated_condition = (field, keyword, value)
+
+        def update_condition(condition, updated_condition):
+            if isinstance(condition, tuple):
+                return updated_condition
+            elif isinstance(condition, dict):
+                return {
+                    "logic": condition.get("logic"),
+                    "conditions": [update_condition(cond, updated_condition) for cond in condition.get("conditions")]
+                }
+            else:
+                raise ValueError(f"Invalid condition: {condition}")
+            
+        self.conditional_fields = update_condition(self.conditional_fields, updated_condition)
+        self.last_condition_ref = updated_condition
 
         return self
     
@@ -254,6 +324,7 @@ class Query:
         Matches field_value against a SQL-like pattern using regex.
         SQL LIKE uses `%` for any number of characters and `_` for exactly one character.
         """
+
         # Convert SQL LIKE pattern to Python regex pattern
         # - `%` becomes `.*` (zero or more characters)
         # - `_` becomes `.` (exactly one character)
@@ -406,6 +477,8 @@ class Query:
 # ==================================
 
 def __aggregator(aggregateop, field):
+    # Aggregates return string and append to aggregate field, only executed when
+    # execute() is called
     def __apply(query):
         query.aggregate_fields.append(f"{aggregateop}({field})")
         return f"{aggregateop}({field})"

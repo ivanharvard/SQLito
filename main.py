@@ -15,25 +15,24 @@ def main():
     #     {"id": 10, "name": "Heidi", "age": 70, "role": "Manager", "salary": 4000},
     # ])
 
-    # db = Database(people)
-
+    # db = Database([people])
+    
     print("Loading database...")
     db = sqlite_to_db(file="shows.db")
     print("Finished.")
 
-    query = Query(db).SELECT("*") \
+    # print(db.schema())
+
+    db = db.timer("on")
+    db = db.mode("python")
+
+    query = Query(db).SELECT(COUNT("title")) \
                      .FROM("shows") \
                      .WHERE("title") \
-                     .LIKE("%The%") \
-                     .LIMIT(10)
-    
-    start_time = time.time()
-    results = query.execute()
-    end_time = time.time()
-
-    print(query)
-    print(results)
-    print(f"Execution time: {end_time - start_time} seconds")
+                     .LIKE("%Titanic%") \
+                     .OR("title") \
+                     .LIKE("%Star Wars%") \
+                     .execute()
 
 if __name__ == "__main__":
     main()
