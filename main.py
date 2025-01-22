@@ -24,9 +24,9 @@ def main():
     # print(db.schema())
 
     db = db.timer("on")
-    db = db.mode("python")
+    db = db.mode("tabs")
 
-    query = Query(db).SELECT(COUNT("title")) \
+    query = Query(db).SELECT(COUNT("title"), AVG("episodes")) \
                      .FROM("shows") \
                      .WHERE("title") \
                      .LIKE("%Titanic%") \

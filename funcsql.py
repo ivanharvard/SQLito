@@ -221,6 +221,8 @@ class Query:
         if self.db.timer_setting:
             start_time = time.time()
 
+        print(self.conditional_fields)
+
         # Get all data from table
         table_data = self.table.get_data()
 
@@ -236,12 +238,21 @@ class Query:
         # Select only the fields specified
         selected_data = self.__apply_select(limited_data)
 
+        # Stop timer (to not include printing time)
         if self.db.timer_setting:
             end_time = time.time()
 
+        # Check for mode settings and print appropriately ('off' to disable)
         if self.db.mode_setting == 'python':
             print(selected_data)
+        elif self.db.mode_setting == 'tabs':
+            if isinstance(selected_data, dict):
+                print("\t".join(str(val) for val in selected_data.values()))
+            else:
+                for item in selected_data:
+                    print("\t".join(str(val) for val in item.values()))
 
+        # Print timer after printing results
         if self.db.timer_setting:
             print(f"real: {end_time - start_time} seconds")
 
@@ -284,8 +295,6 @@ class Query:
 
             # Store reference of last condition for .LIKE, .IN, .BETWEEN, etc.
             self.last_condition_ref = new_condition
-
-        # print(self.conditional_fields)
         
         return self
     
@@ -304,8 +313,11 @@ class Query:
         updated_condition = (field, keyword, value)
 
         def update_condition(condition, updated_condition):
-            if isinstance(condition, tuple):
+            # Update only the condition matching self.last_condition_ref
+            if condition == self.last_condition_ref:
                 return updated_condition
+            elif isinstance(condition, tuple):
+                return condition
             elif isinstance(condition, dict):
                 return {
                     "logic": condition.get("logic"),
@@ -439,6 +451,16 @@ class Query:
             
         if not values:
             raise ValueError(f"No values found for field: {field_name}")
+        
+        # Filter out NULL (None) values
+        values = [val for val in values if val is not None]
+
+        if not values:
+            # If no values are left after filtering out NULL values, some aggregate functions return 0, others return None
+            if aggregate_name in ["COUNT", "SUM"]:
+                return 0
+            else:
+                return None
         
         # Apply aggregate function to values
         try:
