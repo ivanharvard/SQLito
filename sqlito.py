@@ -8,6 +8,8 @@ class Table:
             self.data = data
         else:
             raise ValueError("Invalid table data.")
+        
+        self.types = self.__determine_types()
 
     def get_name(self):
         return self.name
@@ -36,18 +38,32 @@ class Table:
         for i, row in enumerate(table):
             if set(row.keys()) != expected_keys:
                 raise ValueError(f"Row {i + 1} has inconsistent keys. Expected: {expected_keys}, Got: {set(row.keys())}")
-        
+            
         # Ensure table has a valid name
         if not self.get_name():
             raise ValueError("Table must have a name.")
-        
-        # Validate column names
-        for col in expected_keys:
-            if not isinstance(col, str) or not col.strip():
-                raise ValueError(f"Invalid column name: '{col}'. Column names must be non-empty strings.")
             
         return True
-
+    
+    def __determine_types(self):
+        # Determine the type of the column based on the first non-None value
+        # If there exists None values, add "None"
+        results = {}
+        for col_name in self.get_columns(): 
+            col_type = {"type": None, "allows_null": False}
+            for row in self.data:
+                entry = row[col_name]
+                if entry is None:
+                    col_type["allows_null"] = True
+                else:
+                    if col_type["type"] is None:
+                        col_type["type"] = type(entry).__name__
+                    else:
+                        if col_type["type"] != type(entry).__name__:
+                            raise TypeError(f"Encountered a {col_type['type']} in column '{col_name}', but it is already set to {col_type['type']}.")
+            results[col_name] = col_type
+        return results
+    
     def __str__(self):
         return self.name
 
@@ -88,7 +104,7 @@ class Database:
         return None
     
     def schema(self):
-        return {name: table.get_columns() for name, table in self.tables.items()}
+        return {name: table.types for name, table in self.tables.items()}
     
     def mode(self, mode_str):
         valid_modes = ['off', 'python', 'table', 'tabs', 'csv']
@@ -220,8 +236,6 @@ class Query:
             pass
         if self.db.timer_setting:
             start_time = time.time()
-
-        print(self.conditional_fields)
 
         # Get all data from table
         table_data = self.table.get_data()
@@ -375,12 +389,20 @@ class Query:
                 operator_func = operators.get(operator)
 
                 # Convert value to the same type as row[field]
-                if isinstance(field_value, (int, float)):
-                    value = float(value) if '.' in str(value) else int(value)
+                if isinstance(value, tuple):
+                    if isinstance(field_value, (int, float)):
+                        value = tuple(float(val) if isinstance(val, str) and '.' in val else int(val) for val in value)
+                else:
+                    if field_value is not None:  # Only attempt conversion if value is not None
+                        if isinstance(field_value, (int, float)):
+                            if value is not None:
+                                value = float(value) if isinstance(value, str) and '.' in value else int(value)
 
                 try:
-                    if field_value is not None:
+                    if field_value is not None and operator not in ["IS NULL", "IS NOT NULL"]:
                         return operator_func(field_value, value) if operator_func else False
+                    elif operator in ["IS NULL", "IS NOT NULL"]:
+                        return operator_func(field_value, value)
                     else:
                         return False
                 except SyntaxError:
@@ -568,20 +590,5 @@ def sqlite_to_db(file):
 
     # Create a Database object with the imported tables
     return Database(db_tables)
-
-
-def db_to_sqlite(db, file='output.db'):
-    import sqlite3
-
-    conn = sqlite3.connect(file)
-    cursor = conn.cursor()
-
-    for table in db.get_tables():
-        cursor.execute(f"CREATE TABLE {table} ({', '.join(db.get_table(table).get_columns())})")
-        for row in db.get_table(table).get_data():
-            cursor.execute(f"INSERT INTO {table} VALUES ({', '.join(str(val) for val in row.values())})")
-
-    conn.commit()
-    conn.close()
 
 # ==================================
