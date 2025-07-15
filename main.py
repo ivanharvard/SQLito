@@ -22,7 +22,7 @@ def main():
     # db = sqlite_to_db(file="shows.db")
     # print("Finished.")
 
-    print(db.schema())
+    # print(db.schema())
 
     db = db.timer("on")
     db = db.mode("tabs")
@@ -36,6 +36,22 @@ def main():
                      .OR("age > 50") \
                      .ORDER_BY("age", "DESC") \
                      .execute()
+    
+    db = db.CREATE_TABLE("passwords") \
+           .IF_NOT_EXISTS() \
+           .COLUMN("id", "INTEGER").PRIMARY_KEY() \
+           .COLUMN("password", "TEXT").NOT_NULL() \
+           .COLUMN("strength", "REAL") \
+           .COLUMN("created_at", "TEXT").NOT_NULL().UNIQUE() \
+           .execute()
+    
+    
+    # db = db.INSERT_INTO("passwords", ["id", "password"]) \
+    #        .VALUES([1, "password123"]) \
+    #        .execute()
+        
+    
+    # print(db.schema())
 
 if __name__ == "__main__":
     main()
