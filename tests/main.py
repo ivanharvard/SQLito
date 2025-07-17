@@ -1,5 +1,4 @@
 from sqlito import *
-import time
 
 def main():
     people = Table("people", [
