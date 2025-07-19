@@ -47,6 +47,7 @@ class RowType:
                         try:
                             self.data[col.name] = col.affinity.coerce(value)
                         except SQLitoTypeError:
+                            self.data[]
                             
 
     def keys(self):

@@ -1,8 +1,10 @@
 from sqlito.exceptions import SQLitoTypeError
+from sqlito._storageclass import RealStorage
 
 class REAL:
     """Base class for REAL types in SQLito."""
     valid_types = (float, int, bool)
+    storage = RealStorage
 
     @classmethod
     def validate(cls, value):

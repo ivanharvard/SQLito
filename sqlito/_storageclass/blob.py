@@ -10,9 +10,10 @@ class BlobStorage(StorageClass):
     def coerce(cls, value):
         """
         Attempts to coerce the value to bytes.
-        Accepts bytes, and bytearray.
+        Accepts any type that can be serialized to bytes, or is already bytes.
 
         :param value: Value to coerce.
+        :type value: bytes, bytearray, or any serializable type
         :return: Coerced bytes
         :rtype: bytes
 
@@ -20,4 +21,9 @@ class BlobStorage(StorageClass):
         """
         if isinstance(value, (bytes, bytearray)):
             return bytes(value)
-        raise SQLitoTypeError(f"Cannot coerce {value!r} to BLOB.")
+        
+        try:
+            from pickle import dumps
+            return dumps(value)
+        except Exception as e:
+            raise SQLitoTypeError(f"Cannot coerce {value!r} to BLOB. Error: {e}")

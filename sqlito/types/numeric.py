@@ -6,10 +6,12 @@ class NUMERIC:
     Base canonical class for numeric fields in SQLito.
     """
     valid_types = (int, float, str, bool, type(None))
+    storage = 
 
     @classmethod
     def validate(cls, value):
-        cls.storage.validate(value)
+        storage = cls.infer_type(value)
+        storage.validate(value)
 
 
     @classmethod

@@ -29,26 +29,6 @@ class StorageClass:
         raise NotImplementedError(f"{cls.__name__}.coerce() not implemented")
     
     @classmethod
-    def wrap(cls, value):
-        """
-        Utility method to coerce and return a raw Python value, not an instance
-        of the storage class.
-
-        Example usage::
-            from sqlito._storageclass import INTEGER
-
-            value = INTEGER.wrap(42)
-            print(type(value))  # <class 'int'>
-
-            value = INTEGER.wrap("42") # SQLitoTypeError
-
-        :param value: Value to coerce.
-        :return: Coerced value as a raw Python type.
-        """
-        cls.validate(value)
-        return cls.coerce(value)
-    
-    @classmethod
     def __name__(cls):
         return cls.name
 

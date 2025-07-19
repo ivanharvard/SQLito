@@ -1,10 +1,13 @@
 from sqlito.exceptions import SQLitoTypeError
-    
+from sqlito._storageclass import TextStorage
+
 class TEXT:
     """
     Base canonical class for text fields in SQLito. 
     """
     valid_types = (str,)
+    storage = TextStorage
+    
 
     def __init__(self, size=None):
         """

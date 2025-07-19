@@ -1,5 +1,9 @@
+from sqlito._storageclass import BlobStorage
+
 class NONE:
     """Base class for NONE type in SQLito."""
+    storage = BlobStorage
+
     @classmethod
     def validate(cls, value):
         """
