@@ -4,14 +4,14 @@ from .max import MAX
 from .min import MIN
 from .sum import SUM
 
-# list of all SQLito functions, useful for checking if a given function is a SQLito function
-SQLITO_FUNCTIONS = [
+# tuple of all SQLito functions, useful for checking if a given function is a SQLito function
+SQLITO_FUNCTIONS = (
     ABS,
     COUNT,
     MAX,
     MIN,
     SUM,
-]
+)
 
 __all__ = [
     "ABS",

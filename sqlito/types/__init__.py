@@ -18,9 +18,13 @@ from .datetime import (
 )
 from .lob import BLOB
 
+SQLITO_AFFINITIES = (
+    TEXT, NUMERIC, INTEGER, REAL, BLOB
+)
 
 __all__ = [
     "Expression", "Field",
+    "SQLITO_AFFINITIES",
     "NONE",
     "TEXT", "CHAR", "VARCHAR", "TINYTEXT", "MEDIUMTEXT", "LONGTEXT", "NCHAR", "NVARCHAR", "CLOB",
     "NUMERIC", "DECIMAL", "BOOLEAN",

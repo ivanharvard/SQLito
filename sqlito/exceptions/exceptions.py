@@ -16,16 +16,28 @@ class SQLitoTypeError(SQLitoError):
         
         :param message: Custom error message.
         :type message: str
-        :param expected_type: Expected type of the argument. Appended to error message if provided.
-        :type expected_type: str, optional
-        :param received_type: Actual type of the argument received. Appended to error message if provided.
-        :type received_type: str, optional
+        :param expected_type: Expected type of the argument. Converted to its string representation, if possible. Appended to error message if provided.
+        :type expected_type: str, type, optional
+        :param received_type: Actual type of the argument received or the argument received itself. Appended to error message if provided.
+        :type received_type: str, any, optional
         """
         full_message = [message]
 
         if expected_type:
+            if isinstance(expected_type, type):
+                try:
+                    expected_type = expected_type.__name__
+                except Exception:
+                    expected_type = "unknown"
+
             full_message.append(f"Expected type: {expected_type}.")
         if received_type:
+            if not isinstance(received_type, str):
+                try:
+                    received_type = type(received_type).__name__
+                except Exception:
+                    received_type = "unknown"
+
             full_message.append(f"Received type: {received_type}.")
 
         super().__init__(" ".join(full_message))
