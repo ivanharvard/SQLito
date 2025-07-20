@@ -12,11 +12,13 @@ def store_as_storageclass(value):
     :type value: any
 
     :return: An instance of the appropriate storage class.
-    :rtype: NullStorage, IntegerStorage, RealStorage, TextStorage, BlobStorage,
+    :rtype: NullStorage, IntegerStorage, RealStorage, TextStorage, BlobStorage
     """
     # To ensure we actually store the value appropriately, we first coerce it so
     # that its Python primitive is valid for the storage class. Then, we store
     # the coerced value in the appropriate storage class and return it.
+    # e.g. store_as_storageclass("42") will coerce "42" to a Python int, then
+    # store it in IntegerStorage (i.e. IntegerStorage(42)).
 
     if value is None:
         return NullStorage(NullStorage.coerce(value))
@@ -35,8 +37,8 @@ def store_as_storageclass(value):
             # NUMERIC types are the only type that don't have a storage class, 
             # so we infer it based on the value.
             affinity = NUMERIC.infer_type(value)
-            
-        storage_class = affinity.storage
+
+        storage_class = affinity.storage  # ignore pylance error, we've already inferred the type
         return storage_class(storage_class.coerce(value))
     else:
         # If the value is of unknown type, we'll serialize it as a BLOB.

@@ -2,6 +2,7 @@ from sqlito._storageclass import BlobStorage
 
 class NONE:
     """Base class for NONE type in SQLito."""
+    valid_types = (object,)
     storage = BlobStorage
 
     @classmethod

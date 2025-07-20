@@ -32,5 +32,12 @@ class IntegerStorage(StorageClass):
                 pass
         raise SQLitoTypeError(f"Cannot coerce {value!r} to INTEGER.")
     
+    # used for finding the maximum or minimum value
+    def __lt__(self, other):
+        if not isinstance(other, IntegerStorage):
+            raise SQLitoTypeError("Cannot compare IntegerStorage with non-IntegerStorage type.", IntegerStorage, other)
+        
+        return self.value < other.value
+    
 
         

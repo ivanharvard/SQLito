@@ -2,16 +2,16 @@ from sqlito import *
 
 def main():
     people = Table("people", [
-        {"id": 1, "name": "John", "age": 30, "role": "Engineer", "salary": 1000, "warnings": None},
-        {"id": 2, "name": "Jane", "age": 25, "role": "Manager", "salary": 2000, "warnings": None},
-        {"id": 3, "name": "Alice", "age": 35, "role": "Engineer", "salary": 3000, "warnings": None},
-        {"id": 4, "name": "Bob", "age": 40, "role": "Manager", "salary": 4000, "warnings": 1},
-        {"id": 5, "name": "Charlie", "age": 45, "role": "Engineer", "salary": 5000, "warnings": None},
-        {"id": 6, "name": "David", "age": 50, "role": "Manager", "salary": 1000, "warnings": 2},
-        {"id": 7, "name": "Eve", "age": 55, "role": "Engineer", "salary": 2000, "warnings": None},
-        {"id": 8, "name": "Frank", "age": 60, "role": "Manager", "salary": 2000, "warnings": None},
-        {"id": 9, "name": "Grace", "age": 65, "role": "Engineer", "salary": 5000, "warnings": None},
-        {"id": 10, "name": "Heidi", "age": 70, "role": "Manager", "salary": 4000, "warnings": 2},
+        {"id": 1,  "name": "John",    "age": 30, "role": "Engineer", "salary": 1000, "warnings": None},
+        {"id": 2,  "name": "Jane",    "age": 25, "role": "Manager",  "salary": 2000, "warnings": None},
+        {"id": 3,  "name": "Alice",   "age": 35, "role": "Engineer", "salary": 3000, "warnings": None},
+        {"id": 4,  "name": "Bob",     "age": 40, "role": "Manager",  "salary": 4000, "warnings": 1},
+        {"id": 5,  "name": "Charlie", "age": 45, "role": "Engineer", "salary": 5000, "warnings": None},
+        {"id": 6,  "name": "David",   "age": 50, "role": "Manager",  "salary": 1000, "warnings": 2},
+        {"id": 7,  "name": "Eve",     "age": 55, "role": "Engineer", "salary": 2000, "warnings": None},
+        {"id": 8,  "name": "Frank",   "age": 60, "role": "Manager",  "salary": 2000, "warnings": None},
+        {"id": 9,  "name": "Grace",   "age": 65, "role": "Engineer", "salary": 5000, "warnings": None},
+        {"id": 10, "name": "Heidi",   "age": 70, "role": "Manager",  "salary": 4000, "warnings": 2},
     ])
 
     db = Database([people])

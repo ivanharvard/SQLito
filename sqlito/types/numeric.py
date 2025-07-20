@@ -6,13 +6,11 @@ class NUMERIC:
     Base canonical class for numeric fields in SQLito.
     """
     valid_types = (int, float, str, bool, type(None))
-    storage = 
 
     @classmethod
     def validate(cls, value):
         storage = cls.infer_type(value)
         storage.validate(value)
-
 
     @classmethod
     def infer_type(cls, value):
@@ -45,10 +43,10 @@ class NUMERIC:
             try:
                 # Attempt to parse as integer or float
                 if '.' not in lowered and 'e' not in lowered:
-                    int(lowered)
+                    int(lowered) # try to convert to int
                     return INTEGER
                 else:
-                    float(lowered)
+                    float(lowered) # try to convert to float
                     return REAL
             except ValueError:
                 return TEXT

@@ -5,7 +5,7 @@ class StorageClass:
     valid_types = ()
 
     def __init__(self, value):
-        value = self.coerce(value)
+        self.value = self.coerce(value)
 
     @classmethod
     def validate(cls, value):

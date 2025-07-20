@@ -1,5 +1,6 @@
 from sqlito.exceptions import SQLitoTypeError
 from sqlito.types.internal.columntype import ColumnType
+from sqlito.utils import store_as_storageclass
 
 class RowType:
     def __init__(self, columns, data):
@@ -23,6 +24,22 @@ class RowType:
         self._validate_row()
 
     def _validate_row(self):
+        """
+        Validates the row data. 
+
+        - All row columns must be consistent with the provided columns.
+        - Assigns default values for NULL cells.
+        - If the default is still NULL, checks if the column is nullable.
+        - Otherwise, now the value is checked for type conformity with the
+          column's affinity. If it does not conform, and the column is strict,
+          raises a SQLitoTypeError.
+        - Finally, stores the value under its appropriate storage class.
+
+        :raises SQLitoTypeError: If any of the above checks fail.
+        """
+        if any(rowcol not in self.columns for rowcol in self.data):
+            raise SQLitoTypeError("Row data contains invalid columns.")
+
         for col in self.columns:
 
             if col.name not in self.data:
@@ -37,18 +54,13 @@ class RowType:
                 if not col.nullable:
                     raise SQLitoTypeError(f"Column '{col.name}' cannot be NULL.")
             else:
-                if not col.conforms_to_affinity(value):
-                    if col.strict:
-                        raise SQLitoTypeError(
-                            f"Value '{value}' for column '{col.name}' does not conform to its type {col.affinity.name}."
-                        )
-                    else: 
-                        # If not strict, we can coerce the value
-                        try:
-                            self.data[col.name] = col.affinity.coerce(value)
-                        except SQLitoTypeError:
-                            self.data[]
-                            
+                if not col.conforms_to_affinity(value) and col.strict:
+                    raise SQLitoTypeError(
+                        f"Value '{value}' for column '{col.name}' does not conform to its type {col.affinity.name}."
+                    )
+
+            # finally, store the value under its appropriate storage class
+            self.data[col.name] = store_as_storageclass(value)
 
     def keys(self):
         """

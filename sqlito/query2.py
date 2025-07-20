@@ -107,10 +107,24 @@ class SELECTQuery:
 
 from sqlito.types import NUMERIC, TEXT, INT2, INT4
 
-employees = Query(db) \
-           .CREATE_TABLE("employees") \
-           .IF_NOT_EXISTS() \
-           .COLUMN("id", INT2).PRIMARY_KEY() \
-           .COLUMN("name", TEXT(20)).NOT_NULL() \
-           .COLUMN("salary", NUMERIC).DEFAULT(0) \
-           .execute()
+users = Table("users", columns=[
+    ColumnType("id", INT2, primary_key=True),
+    ColumnType("name", TEXT(50), not_null=True),
+    ColumnType("email", TEXT(100), unique=True)
+])
+
+db = Database([users])
+
+emp =  Query(db) \
+      .CREATE_TABLE("employees") \
+      .IF_NOT_EXISTS() \
+      .COLUMN("id", INT2).PRIMARY_KEY() \
+      .COLUMN("name", TEXT(20)).NOT_NULL() \
+      .COLUMN("salary", NUMERIC).DEFAULT(0) \
+      .execute()
+
+result = Query(db) \
+         .SELECT(emp.name, emp.salary) \
+         .FROM("employees") \
+         .WHERE(emp.salary > 1000) \
+         .execute()
