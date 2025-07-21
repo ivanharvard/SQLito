@@ -296,4 +296,18 @@ class Table:
         elif pk_column is None:
             raise SQLitoValueError("A primary key is missing. Either define the primary key to match one of the columns, or set include_rowid to True.")
             
-
+    def __getitem__(self, primary_key):
+        return self.get_row(primary_key)
+    
+    def __contains__(self, primary_key):
+        return primary_key in self.rows
+    
+    def __str__(self):
+        return  f"""
+                Table(
+                    name={self.name},
+                    columns={self.columns},
+                    rows={self.rows}
+                )
+                """
+    

@@ -2,50 +2,6 @@ from sqlito.types import Field, Expression
 from sqlito.exceptions import SQLitoSyntaxError
 from sqlito.functions import SQLITO_FUNCTIONS
 from sqlito.operators import STAR
-
-class Query:
-    def __init__(self, db):
-        """
-        Initialize the Query object with a database.
-
-        :param db: The database instance to query against.
-        :type db: Database
-        """
-        self.db = db
-
-    def SELECT(self, *args):
-        """
-        Create a SELECT query with the provided arguments.
-        
-        :param args: Columns, literals, expressions, or functions to select.
-        :type args: tuple
-
-        :return: An instance of SELECTQuery.
-        """
-        return SELECTQuery(self.db, *args)
-
-    def SELECT_DISTINCT(self, *args):
-        """
-        Create a SELECT DISTINCT query with the provided arguments.
-
-        :param args: Columns, literals, expressions, or functions to select.
-        :type args: tuple
-
-        :return: An instance of SELECTQuery with distinct selection.
-        """
-        return SELECTQuery(self.db, *args, distinct=True)
-
-    def SELECT_ALL(self, *args):
-        """
-        An identical, alternative method to SELECT.
-
-        :param args: Columns, literals, expressions, or functions to select.
-        :type args: tuple
-
-        :return: An instance of SELECTQuery.
-        """
-        return SELECTQuery(self.db, *args, distinct=False)
-
     
 class SELECTQuery:
     def __init__(self, db, *args, distinct=False):
@@ -105,12 +61,12 @@ class SELECTQuery:
     #     self.table = self.db.get_table(table_name)
     #     return FROMQuery(self.db, self.args, self.table, self.distinct)
 
-from sqlito.types import NUMERIC, TEXT, INT2, INT4
+from sqlito.types import NUMERIC, TEXT, VARCHAR, INT2, INT4
 
 users = Table("users", columns=[
     ColumnType("id", INT2, primary_key=True),
     ColumnType("name", TEXT(50), not_null=True),
-    ColumnType("email", TEXT(100), unique=True)
+    ColumnType("email", VARCHAR(100))
 ])
 
 db = Database([users])
@@ -118,7 +74,7 @@ db = Database([users])
 emp =  Query(db) \
       .CREATE_TABLE("employees") \
       .IF_NOT_EXISTS() \
-      .COLUMN("id", INT2).PRIMARY_KEY() \
+      .COLUMN("id", INT4).PRIMARY_KEY() \
       .COLUMN("name", TEXT(20)).NOT_NULL() \
       .COLUMN("salary", NUMERIC).DEFAULT(0) \
       .execute()
