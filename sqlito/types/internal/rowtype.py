@@ -37,8 +37,12 @@ class RowType:
 
         :raises SQLitoTypeError: If any of the above checks fail.
         """
-        if any(rowcol not in self.columns for rowcol in self.data):
-            raise SQLitoTypeError("Row data contains invalid columns.")
+        valid_column_names = [col.name for col in self.columns]
+        if any(rowcol not in valid_column_names for rowcol in self.data):
+            raise SQLitoTypeError(
+                "Row data contains invalid columns. Expected: " + ", ".join(valid_column_names) +
+                ". Found: " + ", ".join(self.data.keys())
+            )
 
         for col in self.columns:
 

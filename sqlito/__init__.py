@@ -15,16 +15,12 @@ _set_version()
 from sqlito.database import Database
 from sqlito.table import Table
 from sqlito.query import Query
-from sqlito.builders import TableBuilder, RowBuilder
-from sqlito.utils import *
 from sqlito.exceptions import SQLitoError, SQLitoTypeError, SQLitoValueError
 
 __all__ = [
     "Database",
     "Table",
     "Query",
-    "TableBuilder",
-    "RowBuilder",
     "SQLitoError",
     "SQLitoTypeError",
     "SQLitoValueError"

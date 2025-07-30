@@ -1,4 +1,4 @@
-from . import TEXT, INTEGER, REAL, NONE
+
 from sqlito.exceptions import SQLitoTypeError
 
 class NUMERIC:
@@ -26,6 +26,8 @@ class NUMERIC:
         :return: A SQLito type class: INTEGER, REAL, TEXT, or NONE.
         :rtype: Type
         """
+        from . import TEXT, INTEGER, REAL, NONE
+
         # Confirms the value is NUMERIC
         cls.validate(value)
 

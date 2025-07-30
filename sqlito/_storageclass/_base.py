@@ -7,6 +7,18 @@ class StorageClass:
     def __init__(self, value):
         self.value = self.coerce(value)
 
+    def evaluate(self, _db=None):
+        """
+        Returns the value of this storage class instance in a single item list.
+
+        :param _db: Database (not used in this context, ignored).
+        :type _db: any
+        
+        :return: The value stored in this instance.
+        :rtype: one of valid_types
+        """
+        return [self.value]
+
     @classmethod
     def validate(cls, value):
         """
@@ -27,10 +39,13 @@ class StorageClass:
     @classmethod
     def coerce(cls, value):
         raise NotImplementedError(f"{cls.__name__}.coerce() not implemented")
-    
+
     @classmethod
     def __name__(cls):
         return cls.name
+
+    def __repr__(self):
+        return str(self.value)
 
     def __str__(self):
         return str(self.value)

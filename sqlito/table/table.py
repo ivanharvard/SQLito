@@ -155,16 +155,33 @@ class Table:
             # reason. Why the user would do this is beyond me.
             raise SQLitoValueError(f"Primary key '{self.primary_key}' was not defined in table columns. (How did you get here?)")
 
+        # Since primary key columns are always strict, we can safely assume that
+        # the primary key value is never going to be None. If it is None, then
+        # the user is trying to insert a row without giving a primary key value.
         if primary_key_val is None:
+            # If the primary key already exists in the row data, then we can use
+            # that as our primary key value for this row instead.
+            if self.primary_key in row.data and row.data[self.primary_key] is not None:
+                primary_key_val = row.data[self.primary_key]
+
+        # Otherwise, if the primary key value is still None, we need to
+        # autoincrement the primary key if it is an INTEGER primary key.
+        if primary_key_val is None:
+            # If the primary key is not an INTEGER, then we cannot autoincrement it.
             if not primary_key_col.affinity == INTEGER:
                 raise SQLitoValueError(f"SQLito requires explicit values for non-integer primary keys. Please provide a value for the primary key '{self.primary_key}'.")
             
-            # Autoincrement primary key
+            # Since it is an INTEGER primary key, we can autoincrement it.
             stored_pk = self._autoincrement_INTEGER_primary_key()
         else:
+            # If the primary key value is provided, we should check whether it's
+            # already stored under a storage class. If it is, we can extract
+            # the value from it.
             if isinstance(primary_key_val, STORAGECLASSES):
                 primary_key_val = primary_key_val.value
             
+            # Now we can check if the primary key value conforms to the column's
+            # affinity. If it does not, we raise a SQLitoTypeError.
             if not primary_key_col.conforms_to_affinity(primary_key_val):
                 raise SQLitoTypeError(f"Primary key value '{primary_key_val}' does not conform to the type of the primary key column '{self.primary_key}'.")
             
@@ -173,11 +190,25 @@ class Table:
             elif primary_key_val in self.rows:
                 raise SQLitoValueError(f"Primary key value '{primary_key_val}' already exists in the table.")
             
-        # Store the row
+        # Store the the primary key under its appropriate storage class
         stored_pk = store_as_storageclass(primary_key_val)
+        # Now add it to the set of used primary keys
         self._used_primary_keys.add(stored_pk)
+        # In the row, grab the column that is set as the primary key, and set
+        # its value to the generated (or provided) primary key value.
         row.data[self.primary_key] = stored_pk
+        # Finally, store the row in the table's rows dictionary.
         self.rows[stored_pk] = row
+
+    def insert_rows(self, *rows):
+        """
+        Inserts multiple rows into the table.
+
+        :param rows: One or more RowType instances to insert.
+        :type rows: tuple of sqlito.types.internal.RowType
+        """
+        for row in rows:
+            self.insert_row(row)
 
         
     def update_row(self, primary_key, updates):
@@ -226,6 +257,24 @@ class Table:
         """
         return self.rows[primary_key]
     
+    def get_column_data(self, column_name):
+        """
+        Retrieves the data for a specific column across all rows in the table.
+        
+        :param column_name: The name of the column to retrieve data for.
+        :type column_name: str
+
+        :return: A list of all values in the specified column.
+        :rtype: list
+        """
+        if not isinstance(column_name, str):
+            raise SQLitoTypeError("Column name must be a string.", str, column_name)
+
+        if column_name not in {col.name for col in self.columns}:
+            raise SQLitoValueError(f"Column '{column_name}' does not exist in the table '{self.name}'.")
+
+        return [row.data.get(column_name, NullStorage()) for row in self.rows.values()]
+    
     def _get_primary_key_column(self):
         return next((col for col in self.columns if col.name == self.primary_key), None)
     
@@ -264,7 +313,7 @@ class Table:
                 raise SQLitoTypeError("All columns must be instances of ColumnType.", ColumnType, col)
             if not isinstance(col.name, str):
                 raise SQLitoTypeError("Column names must be strings.", str, col.name)
-            if not isinstance(col.affinity, SQLITO_AFFINITIES):
+            if not issubclass(col.affinity, SQLITO_AFFINITIES):
                 raise SQLitoTypeError("Column affinity must be a valid SQLito type affinity.", SQLITO_AFFINITIES, col.affinity)
             if not isinstance(col.strict, bool):
                 raise SQLitoTypeError("Column strictness must be a boolean.", bool, col.strict)
@@ -288,11 +337,11 @@ class Table:
 
         if self.include_rowid:
             if pk_column is None:
-                raise SQLitoValueError(f"Primary key '{self.primary_key}' is not defined in table columns.")
-            
-            if pk_column.affinity != INTEGER:
-                # Add implicit rowid if primary key is not INTEGER
+                # Add implicit rowid if primary key is not defined
                 self.columns.insert(0, ColumnType("rowid", INTEGER, strict=True, nullable=False))
+                pk_column = self.columns[0]
+            elif pk_column.affinity != INTEGER:
+                raise SQLitoValueError(f"Primary key '{self.primary_key}' must be of type INTEGER when include_rowid is True.")
         elif pk_column is None:
             raise SQLitoValueError("A primary key is missing. Either define the primary key to match one of the columns, or set include_rowid to True.")
             

@@ -1,6 +1,6 @@
 from sqlito.builders import TableBuilder, RowBuilder
 from sqlito.table import Table
-from sqlito.exceptions import 
+from sqlito.exceptions import SQLitoTableError
 
 class Database:
     def __init__(self, tables=[]):

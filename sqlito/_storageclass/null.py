@@ -6,6 +6,12 @@ class NullStorage(StorageClass):
     name = "NULL"
     valid_types = (type(None),)
 
+    def __init__(self, value=None):
+        if value is not None:
+            raise SQLitoTypeError(f"Invalid value for NULL storage: {value!r}")
+        
+        self.value = None
+
     @classmethod
     def coerce(cls, value):
         """

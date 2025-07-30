@@ -1,4 +1,5 @@
-from sqlito.query.selectquery import SELECTQuery
+from sqlito.query.cores import SelectCore
+from sqlito.database import Database
 
 class Query:
     """
@@ -13,6 +14,9 @@ class Query:
         :param db: The database instance to query against.
         :type db: Database
         """
+        if not isinstance(db, Database):
+            raise TypeError("db must be an instance of Database")
+
         self.db = db
 
     # ========================================
@@ -26,9 +30,9 @@ class Query:
         :param args: Columns, literals, expressions, or functions to select.
         :type args: tuple
 
-        :return: An instance of SELECTQuery.
+        :return: An instance of SelectCore.
         """
-        return SELECTQuery(self.db, *args)
+        return SelectCore(self.db, *args)
 
     def SELECT_DISTINCT(self, *args):
         """
@@ -37,9 +41,9 @@ class Query:
         :param args: Columns, literals, expressions, or functions to select.
         :type args: tuple
 
-        :return: An instance of SELECTQuery with distinct selection.
+        :return: An instance of SelectCore with distinct selection.
         """
-        return SELECTQuery(self.db, *args, distinct=True)
+        return SelectCore(self.db, *args, distinct=True)
 
     def SELECT_ALL(self, *args):
         """
@@ -48,10 +52,10 @@ class Query:
         :param args: Columns, literals, expressions, or functions to select.
         :type args: tuple
 
-        :return: An instance of SELECTQuery.
+        :return: An instance of SelectCore.
         """
-        return SELECTQuery(self.db, *args, distinct=False)
-    
+        return SelectCore(self.db, *args, distinct=False)
+
     # ========================================
     # CREATE methods
     # ========================================

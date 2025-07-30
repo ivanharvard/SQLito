@@ -25,7 +25,7 @@ class ColumnType:
         """
         if not isinstance(name, str):
             raise SQLitoTypeError("Column name must be a string.")
-        if not isinstance(affinity, SQLITO_AFFINITIES):
+        if not issubclass(affinity, SQLITO_AFFINITIES):
             raise SQLitoTypeError("Column affinity must be one of SQLito's defined affinities.", received_type=affinity)
         if not isinstance(strict, bool):
             raise SQLitoTypeError("Strictness must be a boolean value.")
@@ -33,7 +33,7 @@ class ColumnType:
             raise SQLitoTypeError("Nullability must be a boolean value.")
         if not isinstance(autoincrement, bool):
             raise SQLitoTypeError("Autoincrement must be a boolean value.")
-        if not isinstance(affinity, INTEGER) and autoincrement:
+        if not issubclass(affinity, INTEGER) and autoincrement:
             raise SQLitoSyntaxError("Autoincrement can only be applied to INTEGER columns.")
 
         self.name = name
@@ -41,6 +41,7 @@ class ColumnType:
         self.strict = strict
         self.default = default
         self.nullable = nullable
+        self.autoincrement = autoincrement
 
     def conforms_to_affinity(self, value, nullability=False) -> bool:
         """

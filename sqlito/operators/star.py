@@ -1,17 +1,20 @@
-from sqlito.types import Field
-from sqlito.exceptions import SQLitoSyntaxError
+from sqlito.exceptions import SQLitoTypeError
+from sqlito.table import Table
 
-class Star(Field):
+class Star:
     def __init__(self):
-        super().__init__()
+        self._resolved = False
+        self._columns = None
 
-    def AS(self, alias):
-        """
-        STAR does not support aliasing.
+    def resolve(self, table):
+        if not isinstance(table, Table):
+            raise SQLitoTypeError("Star operator can only be resolved with a Table instance.")
+        
+        self._columns = table.columns
+        self._resolved = True
 
-        :raises SQLitoSyntaxError: Always raises an error when trying to alias STAR.
-        """
-        raise SQLitoSyntaxError("STAR does not support aliasing.")
+    def is_resolved(self):
+        return self._resolved
 
     def __str__(self):
         return "*"

@@ -1,4 +1,4 @@
-from sqlito._storageclass import NullStorage, IntegerStorage, RealStorage, TextStorage, BlobStorage
+from sqlito._storageclass import NullStorage, IntegerStorage, RealStorage, TextStorage, BlobStorage, SerializedBlobStorage
 from sqlito.types import SQLITO_AFFINITIES, NUMERIC
 
 def store_as_storageclass(value):
@@ -6,7 +6,7 @@ def store_as_storageclass(value):
     Stores a value under its appropriate storage class based on its type.
     Accepts None, Python primitives, SQLito affinities, and Python objects.
     If the value is of an unknown type (e.g. Python objects), it will be 
-    serialized as a BLOB.
+    serialized as a SerializedBLOB.
 
     :param value: The value to be stored.
     :type value: any
@@ -30,7 +30,7 @@ def store_as_storageclass(value):
         return TextStorage(TextStorage.coerce(value))
     elif isinstance(value, (bytes, bytearray)):
         return BlobStorage(BlobStorage.coerce(value))
-    elif isinstance(value, SQLITO_AFFINITIES):
+    elif is_sqlito_affinity(value):
         affinity = value.__class__
 
         if not hasattr(affinity, 'storage'):
@@ -41,5 +41,17 @@ def store_as_storageclass(value):
         storage_class = affinity.storage  # ignore pylance error, we've already inferred the type
         return storage_class(storage_class.coerce(value))
     else:
-        # If the value is of unknown type, we'll serialize it as a BLOB.
-        return BlobStorage(BlobStorage.coerce(value))
+        # If the value is of unknown type, we'll serialize it as a SerializedBLOB.
+        return SerializedBlobStorage(SerializedBlobStorage.coerce(value))
+
+def is_sqlito_affinity(obj):
+    """
+    Checks if a obj is a SQLito affinity type.
+
+    :param obj: The value to check.
+    :type obj: any
+
+    :return: True if the value is a SQLito affinity type, False otherwise.
+    :rtype: bool
+    """
+    return isinstance(obj, type) and issubclass(obj, SQLITO_AFFINITIES)

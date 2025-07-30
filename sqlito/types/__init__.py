@@ -1,5 +1,3 @@
-from .expression import Expression
-from .field import Field
 from .none import NONE
 from .text import (
     TEXT, CHAR, VARCHAR, TINYTEXT, MEDIUMTEXT, LONGTEXT, NCHAR, NVARCHAR, CLOB
@@ -23,7 +21,6 @@ SQLITO_AFFINITIES = (
 )
 
 __all__ = [
-    "Expression", "Field",
     "SQLITO_AFFINITIES",
     "NONE",
     "TEXT", "CHAR", "VARCHAR", "TINYTEXT", "MEDIUMTEXT", "LONGTEXT", "NCHAR", "NVARCHAR", "CLOB",
