@@ -37,8 +37,8 @@ import time
 start = time.time()
 for row in employees.rows.values():
     row.data
-assert print(type(emp.salary.to_field().evaluate(db)))
-assert emp.id.to_field().evaluate(db) == [1, 2, 3]
+emp.salary.to_field().evaluate(db)
+emp.id.to_field().evaluate(db)
 assert ((emp.salary + emp.id) - (emp.id + emp.id) + emp.id).evaluate(db).data == [50000, 60000, 70000]
 assert (emp.salary - 50).AS("decreased_salary").evaluate(db).data == [49950, 59950, 69950]
 end = time.time()

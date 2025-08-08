@@ -57,7 +57,10 @@ class SelectCore:
         """
         Specify the condition for filtering the results.
         """
-        
+        pass
+
+    def execute(self):
+        pass
 
         
         

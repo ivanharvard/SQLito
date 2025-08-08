@@ -5,12 +5,17 @@ class NullStorage(StorageClass):
     """Storage class for NULL values in SQLito."""
     name = "NULL"
     valid_types = (type(None),)
+    _instance = None
 
     def __init__(self, value=None):
+        if hasattr(self, "_initialized"):
+            return
+
         if value is not None:
             raise SQLitoTypeError(f"Invalid value for NULL storage: {value!r}")
         
         self.value = None
+        self._initialized = True
 
     @classmethod
     def coerce(cls, value):
@@ -30,3 +35,8 @@ class NullStorage(StorageClass):
             return None
         else:
             raise SQLitoTypeError(f"Cannot coerce {value!r} to NULL.")
+        
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(NullStorage, cls).__new__(cls)
+        return cls._instance

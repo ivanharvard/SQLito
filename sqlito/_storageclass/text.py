@@ -21,5 +21,8 @@ class TextStorage(StorageClass):
         if isinstance(value, str):
             return value
         if isinstance(value, bytes):
-            return value.decode('utf-8', errors='replace')
+            try:
+                return value.decode('utf-8')
+            except UnicodeDecodeError:
+                pass
         raise SQLitoTypeError(f"Cannot coerce {value!r} to TEXT.")

@@ -2,12 +2,17 @@ from sqlito.types.internal.vcolumn import VirtualColumn
 
 from sqlito.exceptions import SQLitoTypeError, SQLitoValueError
 from sqlito.utils import store_as_storageclass
-
-from itertools import zip_longest
+from sqlito.database import Database
 
 class Expression:
-    valid_operators = ["+", "-", "*", "/", "%", "==", "!=", "<", ">", "<=", ">="]
-
+    mapping = {
+        "+": lambda x, y: x + y,
+        "-": lambda x, y: x - y,
+        "*": lambda x, y: x * y,
+        "/": lambda x, y: x / y,
+        "%": lambda x, y: x % y,
+    }
+    
     def __init__(self, left, operator, right):
         """
         Initializes the Expression instance.
@@ -24,14 +29,15 @@ class Expression:
         self.right = right
         self.alias = None
 
-        self._validate_expression()
+        self._validate()
 
         self.left = self._wrap(self.left)
         self.right = self._wrap(self.right)
 
-    def _validate_expression(self):
-        if self.operator not in Expression.valid_operators:
-            raise SQLitoValueError(f"Invalid operator: {self.operator}. Supported operators are: {Expression.valid_operators}.")
+    def _validate(self):
+        _class = self.__class__
+        if self.operator not in _class.mapping.keys():
+            raise SQLitoValueError(f"Invalid operator: {self.operator}. Supported operators are: {_class.mapping.keys()}.")
 
     def _wrap(self, value):
         if hasattr(value, 'evaluate'):
@@ -53,22 +59,19 @@ class Expression:
         :return: A function that applies the operator.
         :rtype: function
         """
-        mapping = {
-            "+": lambda x, y: x + y,
-            "-": lambda x, y: x - y,
-            "*": lambda x, y: x * y,
-            "/": lambda x, y: x / y,
-            "%": lambda x, y: x % y,
-        }
+        _class = self.__class__
         try:
-            return mapping[self.operator]
+            return _class.mapping[self.operator]
         except KeyError:
-            raise SQLitoValueError(f"Invalid operator: {self.operator}. Supported operators are: +, -, *, /, %.")
-    
+            raise SQLitoValueError(f"Invalid operator: {self.operator}. Supported operators are: {_class.mapping.keys()}.")
+
     def evaluate(self, db):
         """
         Evaluate the expression against the database.
         """
+        if not isinstance(db, Database):
+            raise SQLitoTypeError(f"Expected a Database instance, got {type(db).__name__}.")
+
         # Unwrap storage classes if present
         def unwrap(v):
             return v.value if hasattr(v, "value") else v
@@ -103,17 +106,32 @@ class Expression:
     def __add__(self, other):
         return Expression(self, "+", other)
     
+    def __radd__(self, other):
+        return Expression(other, "+", self)
+    
     def __sub__(self, other):
         return Expression(self, "-", other)
+    
+    def __rsub__(self, other):
+        return Expression(other, "-", self)
     
     def __mul__(self, other):
         return Expression(self, "*", other)
     
+    def __rmul__(self, other):
+        return Expression(other, "*", self)
+    
     def __truediv__(self, other):
         return Expression(self, "/", other)
     
+    def __rtruediv__(self, other):
+        return Expression(other, "/", self)
+    
     def __mod__(self, other):
         return Expression(self, "%", other)
+    
+    def __rmod__(self, other):
+        return Expression(other, "%", self)
 
     def __str__(self):
         expr = f"({self.left} {self.operator} {self.right})" 
